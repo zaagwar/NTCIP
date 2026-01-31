@@ -38,7 +38,7 @@ enum Occurrence
 	SECOND       = 2,
 	THIRD        = 3,
 	FOURTH       = 4,
-	LASE         = 5,
+	LAST         = 5,
 	SECOND_LAST  = 6,
 	THIRD_LAST   = 7,
 	FOURTH_LAST  = 8,
@@ -92,301 +92,6 @@ typedef struct ModuleTableEntry
 	} moduleType;
 } ModuleTableEntry;
 
-/* This node is an identifier used to group all objects for support of
- * configuration functions that are common to most device types.
- */
-typedef struct GlobalConfiguration
-{
-	/* Specifies a relatively unique ID (e.g., this could be a counter, a
-	 * check-sum, etc.) for all user-changeable parameters of the particular
-	 * device-type currently implemented in the device. Often this ID is
-	 * calculated using a CRC algorithm. This value shall be calculated when a
-	 * change of any static database object has occurred. The value reported by
-	 * this object shall not change unless there has been a change in the static
-	 * data since the last request. If the actual objects, which are to be
-	 * included to create this object value, are not defined in the actual
-	 * device-level standard such as 1202 or 1203, then the general guidance is
-	 * to include all configuration objects that are stored in a type of memory
-	 * that survives power outages. A management station can use this object to
-	 * detect any change in the static database objects by monitoring this value
-	 * after it has established a baseline.
-	 */
-	uint16_t globalSetIDParameter;
-
-	/* The number of rows that are listed in the globalModuleTable. */
-	uint8_t globalMaxModules;
-
-	/* A table containing information regarding manufacturer of software and
-	 * hardware and the associated module models and version numbers as well as
-	 * an indicator if the module is hardware or software related. The number of
-	 * rows in this table shall equal the value of the globalMaxModules object.
-	 */
-	ModuleTableEntry *globalModuleTable;
-
-	/* For use in this object, an ASCII string that shall identify all of the
-	 * standard document numbers that define or reference MIBs upon which the
-	 * device is based. Where applicable, profiles shall be referenced rather
-	 * than the base standards. The version string shall be constructed as
-	 * follows: The acronym of the standards development organization (or other
-	 * body) that developed and approved the standard; a space; the standards
-	 * document number; a colon; and the documents version number as designated
-	 * by the standards development organization (or other body). Separate
-	 * entries in the list of standards shall be separated by a carriage return
-	 * (0x0d) and line feed (0x0a). In the case of NTCIP documents prior to
-	 * formal approval, the version number shall be the version number in the
-	 * form of lower case ‘v’ followed by the major version followed by a period
-	 * followed by the minor revision. In the case of approved NTCIP standards,
-	 * the publication year shall precede the version number. In the case of
-	 * amended NTCIP standards, the version number shall be replaced by the four
-	 * digit year of publication of the published standard followed by the upper
-	 * case letter ‘A’, followed by the amendment number.
-	 *
-	 * For example, a message sign may have the following value for this object:
-	 *   NTCIP 1201:v02.19
-	 *   NTCIP 1203:1997A1
-	 *   NTCIP 2101:2001 v01.19
-	 *   NTCIP 2103:v01.13
-	 *   NTCIP 2201:v01.14
-	 *   NTCIP 2301:2001 v01.08
-	 */
-	const char *const controllerBaseStandards;
-} GlobalConfiguration;
-
-/* This node is an identifier used to group those objects used to manage a
- * transaction. A transaction is a SET of one or more database parameters that
- * have inter-relationships with other database parameters, as such a SET for
- * any one of these objects must be validated against a set of consistency
- * checks and may potentially require the setting of a large number of objects
- * simultaneously. Thus, the mode described by these objects allow for such a
- * large database download. Any device standard that allows this feature shall
- * define which objects are database parameters versus status or control
- * objects.
- */
-typedef struct GlobalDatabaseManagement
-{
-	/* This object provides transaction control for device configuration. The
-	 * transaction mode changes the behavior of the agent to force buffering of
-	 * database objects until all related database objects have been modified.
-	 * In the normal mode, SET operations to any database object shall either be
-	 * stored in a device’s database immediately with no regard to whether other
-	 * changes will be made or be rejected (as defined in the device-specific
-	 * Information Profile). In the transaction mode, SET operations to any
-	 * database object shall be buffered until a verify state performs a
-	 * consistency check. When the consistency check completes, the device
-	 * automatically transitions to the done state where a normal or transaction
-	 * command may be issued. A database object is a user-provided piece of
-	 * setup information (or it may be defined in an information profile) that
-	 * is necessary for the proper operation of a device. It is static in nature
-	 * in that the agent would never change it without direction from the
-	 * management station. For example, a parameter that defines a default mode
-	 * of operation would be a database object. A parameter that indicates the
-	 * current state of the device would not be a database object. The states
-	 * and commands are defined as:
-	 *
-	 * NORMAL: SET operations behave as normal SETs and shall have an immediate
-	 * effect on the value of any database objects used by the device if none of
-	 * the objects contained in the operation require the use of the transaction
-	 * mode (as defined in the device-specific Information Profile). A SET
-	 * operation containing any database object that requires the use of
-	 * transaction mode shall result in a genErr. This is the default state of
-	 * this object. The only command that may be written to dbCreateTransaction
-	 * while in this state is TRANSACTION. Any other values written to this
-	 * object in this state shall result in an error response of ‘badValue’.
-	 *
-	 * TRANSACTION: A SET operation of one or more database objects that use the
-	 * same community name as used in the request for the TRANSACTION state are
-	 * buffered by the agent device for later consistency checks and a normal
-	 * response is returned. A SET operation of one or more database objects
-	 * using different community names shall result in a genErr with the index
-	 * set to zero. A SET operation without a community name field (e.g., an
-	 * STMP operation) shall be buffered by the agent device for later
-	 * consistency checks and a normal response is returned. Standard SYNTAX
-	 * checking shall take place at the time of the SET operation. A transaction
-	 * may consist of multiple SET operations over multiple frames. A SET
-	 * operation for one or more non-database objects shall be processed as
-	 * normal even if it uses another community name, except for this (i.e., the
-	 * dbCreateTransaction) object. A SET operation containing both database and
-	 * non-database objects shall be processed in full according to these two
-	 * rules. Thus, if it contains the same community name as used in the
-	 * request for the TRANSACTION state, the non-database objects shall be
-	 * stored immediately while the database objects shall be buffered. If it
-	 * uses a different community name, the entire request will be rejected and
-	 * a genErr with an index of zero shall be returned. GET operations on any
-	 * object shall return the values of the data stored in the controller and
-	 * shall ignore any values contained in the buffer. Any valid community name
-	 * may read this (dbCreateTransaction) object when in this state, but only
-	 * the community name used to command the object to the transaction mode and
-	 * the administrator community name can set this object. A set from any
-	 * other community name shall result in a genErr with an index of zero. The
-	 * only commands that can be written to dbCreateTransaction while in this
-	 * state are VERIFY and NORMAL. A VERIFY command will change the state to
-	 * VERIFY. If a NORMAL command is received, all buffered data is discarded
-	 * and the state is returned to NORMAL. Any other values written to this
-	 * object when in this state shall result in an error response of
-	 * ‘badValue’.
-	 *
-	 * VERIFY: Specific database objects are checked for consistency. When
-	 * consistency checks are complete the device will automatically advance to
-	 * the DONE state. The state of dbCreateTransaction cannot be changed when
-	 * in the VERIFY state. Any values written to this object in this state
-	 * shall result in an error response of ‘badValue’. The consistency check
-	 * analyzes certain critical objects 'in context' and treats them as an
-	 * interrelated whole rather than separate non-related data items. The
-	 * consistency check rules are not defined in NTCIP 1201 v03, since these
-	 * are device and implementation specific. Where applicable, the consistency
-	 * check rules are defined in application specific object definition
-	 * standards. A specific implementation may add additional checks
-	 * beyond those defined in NTCIP standards. A SET operation containing any
-	 * database objects while in the VERIFY state shall result in a genErr with
-	 * the index set to zero.
-	 *
-	 * DONE: This state is entered automatically once consistency checks have
-	 * completed in the VERIFY mode. The value of dbVerifyStatus and
-	 * dbVerifyError indicate whether the consistency check found any errors.
-	 * A SET operation containing any database objects while in the DONE state
-	 * shall result in a genErr with the index set to zero. Any valid community
-	 * name may read this (dbCreateTransaction) object when in this state, but
-	 * only the community name used to command the object to the transaction
-	 * mode and the administrator community name can set this object. A set from
-	 * any other community name shall result in a genErr with an index of zero.
-	 * The only commands that can be written to dbCreateTransaction while in
-	 * this state are NORMAL and TRANSACTION. Any other values written to this
-	 * object in this state shall result in an error response of ‘badValue’. If
-	 * a NORMAL command is issued and dbVerifyStatus indicates doneWithNoError,
-	 * the buffered data is transferred to the device memory and the state is
-	 * returned to NORMAL. If a NORMAL command is issued and dbVerifyStatus
-	 * indicates something other than doneWithNoError then the buffered data is
-	 * discarded and the state is returned to NORMAL. If a TRANSACTION command
-	 * is issued, regardless of dbVerifyStatus, no action takes place (the
-	 * buffered data is not changed) and the TRANSACTION state is re-entered.
-
-               +-----------------+------------+------------+-----------------+
-               | TRANSACTION     | VERIFY     | NORMAL     | DONE            |
- +-------------+-----------------+------------+------------+-----------------+
- | NORMAL      | TRANSACTION (1) | NORMAL (2) | NORMAL (2) | NORMAL      (2) |
- | TRANSACTION | TRANSACTION (2) | VERIFY (3) | NORMAL (4) | TRANSACTION (2) |
- | VERIFY (7)  | VERIFY      (2) | VERIFY (2) | VERIFY (2) | VERIFY      (2) |
- | DONE   (8)  | TRANSACTION (5) | DONE   (2) | NORMAL (6) | DONE        (2) |
- +-------------+-----------------+------------+------------+-----------------+
-
-	* Operational procedures and error responses:
-	* (1) Once a copy of all database objects is placed in a buffer, the state
-	*     is changed to transaction and error response indicates noError. If the
-	*     operation fails, the state remains the same and error response
-	*     indicates genErr.
-	* (2) No action takes place, the state remains the same, but response
-	*     indicates badValue.
-	* (3) The state is changed to verify, a consistency check is started, and
-	*     response indicates noError. Once the consistency check is completed,
-	*     the state automatically changes to done.
-	* (4) The buffered copy of all database objects is discarded, the state is
-	*     changed to normal, and response indicates noError.
-	* (5) The buffered copy of all database objects is not changed or reloaded,
-	*     the state is changed to transaction, and response indicates noError.
-	* (6) If dbVerifyStatus indicates doneWithNoError, then the copy of all
-	*     database objects is transferred to memory, the state is changed to
-	*     normal and response indicates noError. If dbVerifyStatus indicates
-	*     doneWithError then the buffered data is discarded, the state is
-	*     changed to NORMAL, and response indicates noError.
-	* (7) The state automatically changes to done when the consistency check
-	*     completes.
-	* (8) dbVerifyStatus and dbVerifyError are only valid in this state.
-	* (9) All SET operations on this (dbCreateTransaction) parameter shall be
-	*     made using a protocol that uses a community name, or equivalent field
-	*     (e.g., SNMP).
-	*/
-	enum
-	{
-		NORMAL      = 1,
-		TRANSACTION = 2,
-		VERIFY      = 3,
-		DONE        = 6
-	} dbCreateTransaction;
-
-
-	/* This object has been deprecated since 1996.
-	 * This object returns the current error status of the transaction. The
-	 * value of this object is only valid when the dbCreateTransaction object is
-	 * in the Done or Error state.
-	 */
-	enum
-	{
-		tooBig      = 1,
-		noSuchName  = 2,
-		badValue    = 3,
-		readOnly    = 4,
-		genError    = 5,
-		updateError = 6,
-		noError     = 7
-	} dbErrorType;
-
-	/* This object has been deprecated since 1996.
-	 * This object contains the object identifier of the first object in the
-	 * transaction buffer that caused an error while dbCreateTransaction object
-	 * was in the Verifying or Updating state. The value of this object is only
-	 * valid when the dbCreateTransaction object is in the Error state. It is
-	 * undefined when the dbCreateTransaction object is in other states.
-	 */
-	const char *const dbErrorID;
-
-	/* This object has been deprecated since 1996.
-	 * This object contains the transaction ID value that is to be contained in
-	 * all SET operation writes while the dbCreateTransaction object is not in
-	 * the Normal state. During transaction operations every SET command shall
-	 * begin with a write to this object with the current value of this object.
-	 * If a SET operation is performed without writing to this object, or with a
-	 * value that does not match the current value, then an error response of
-	 * ‘genError’ shall be returned. This mechanism is used to determine that
-	 * the same management station that started the transaction is performing
-	 * the SET operations that are being buffered or modifying the state of
-	 * dbCreateTransaction.
-	 */
-	const char *const dbTransactionID;
-
-	/* This object has been deprecated since 1996.
-	 * This object is used to create unique transaction ID’s for management
-	 * stations to use when starting transactions using the dbCreateTransaction
-	 * object. This object will be incremented by one every time it is read, so
-	 * that different values will be returned for each read. Management stations
-	 * wishing to start a transaction should first read the dbCreateTransaction
-	 * object to verify that it is in the Normal state. If so then the
-	 * management shall GET dbMakeID to obtain a transaction ID to use, then
-	 * SET dbCreateTransaction to startCmd and dbTransactionID to the value just
-	 * received. If the response to the SET operation is ‘noError’ then the
-	 * management station has started a transaction. If the response to the SET
-	 * operation is ‘genError’ then the management station should read the
-	 * dbCreateTransaction and dbTransactionID objects to ensure that the error
-	 * was not due to a communications retry. If the dbCreateTransaction is in
-	 * the Transaction state, and the dbTransactionID is the same value returned
-	 * by the read of this object, then the management station is the owner of
-	 * the transaction. If the dbTransactionID does not match the value
-	 * originally returned by this object, then the management station is not
-	 * the owner of the transaction and must wait until the dbCreateTransaction
-	 * object returns to the Normal state before attempting to start the
-	 * transaction.
-	 */
-	uint8_t dbMakeID;
-
-	/* This object indicates the current status of verify (consistency checking)
-	 * processing. The value of this object is only meaningful when the
-	 * dbCreateTransaction object is in the Verify or Done state.
-	 */
-	enum
-	{
-		notDone         = 1,
-		doneWithError   = 2,
-		doneWithNoError = 3
-	} dbVerifyStatus;
-
-	/* This object contains a textual description of or a reference to an error
-	 * that was found by the verify (consistency checking) processing. The value
-	 * of this object is only meaningful when the dbCreateTransaction object is
-	 * in the Done state and the dbVerifyStatus object is in the doneWithError
-	 * state.
-	 */
-	const char *const dbVerifyError;
-} GlobalDatabaseManagement;
-
 typedef struct TimeBaseScheduleEntry
 {
 	/* The time base schedule number for objects in this row. The value of this
@@ -395,7 +100,6 @@ typedef struct TimeBaseScheduleEntry
 	 * by all other objects within this table.
 	 */
 	uint16_t timeBaseScheduleNumber;
-
 
 	/* The Month(s) Of the Year that the schedule entry shall be allowed. Each
 	 * bit represents a specific month. If the bit is set to one (1), then the
@@ -752,6 +456,300 @@ typedef struct DaylightSavingNode
 	 */
 	DSTEntry *dstTable;
 } DaylightSavingNode;
+
+/* This node is an identifier used to group all objects for support of
+ * configuration functions that are common to most device types.
+ */
+typedef struct GlobalConfiguration
+{
+	/* Specifies a relatively unique ID (e.g., this could be a counter, a
+	 * check-sum, etc.) for all user-changeable parameters of the particular
+	 * device-type currently implemented in the device. Often this ID is
+	 * calculated using a CRC algorithm. This value shall be calculated when a
+	 * change of any static database object has occurred. The value reported by
+	 * this object shall not change unless there has been a change in the static
+	 * data since the last request. If the actual objects, which are to be
+	 * included to create this object value, are not defined in the actual
+	 * device-level standard such as 1202 or 1203, then the general guidance is
+	 * to include all configuration objects that are stored in a type of memory
+	 * that survives power outages. A management station can use this object to
+	 * detect any change in the static database objects by monitoring this value
+	 * after it has established a baseline.
+	 */
+	uint16_t globalSetIDParameter;
+
+	/* The number of rows that are listed in the globalModuleTable. */
+	uint8_t globalMaxModules;
+
+	/* A table containing information regarding manufacturer of software and
+	 * hardware and the associated module models and version numbers as well as
+	 * an indicator if the module is hardware or software related. The number of
+	 * rows in this table shall equal the value of the globalMaxModules object.
+	 */
+	ModuleTableEntry *globalModuleTable;
+
+	/* For use in this object, an ASCII string that shall identify all of the
+	 * standard document numbers that define or reference MIBs upon which the
+	 * device is based. Where applicable, profiles shall be referenced rather
+	 * than the base standards. The version string shall be constructed as
+	 * follows: The acronym of the standards development organization (or other
+	 * body) that developed and approved the standard; a space; the standards
+	 * document number; a colon; and the documents version number as designated
+	 * by the standards development organization (or other body). Separate
+	 * entries in the list of standards shall be separated by a carriage return
+	 * (0x0d) and line feed (0x0a). In the case of NTCIP documents prior to
+	 * formal approval, the version number shall be the version number in the
+	 * form of lower case ‘v’ followed by the major version followed by a period
+	 * followed by the minor revision. In the case of approved NTCIP standards,
+	 * the publication year shall precede the version number. In the case of
+	 * amended NTCIP standards, the version number shall be replaced by the four
+	 * digit year of publication of the published standard followed by the upper
+	 * case letter ‘A’, followed by the amendment number.
+	 *
+	 * For example, a message sign may have the following value for this object:
+	 *   NTCIP 1201:v02.19
+	 *   NTCIP 1203:1997A1
+	 *   NTCIP 2101:2001 v01.19
+	 *   NTCIP 2103:v01.13
+	 *   NTCIP 2201:v01.14
+	 *   NTCIP 2301:2001 v01.08
+	 */
+	const char *const controllerBaseStandards;
+} GlobalConfiguration;
+
+/* This node is an identifier used to group those objects used to manage a
+ * transaction. A transaction is a SET of one or more database parameters that
+ * have inter-relationships with other database parameters, as such a SET for
+ * any one of these objects must be validated against a set of consistency
+ * checks and may potentially require the setting of a large number of objects
+ * simultaneously. Thus, the mode described by these objects allow for such a
+ * large database download. Any device standard that allows this feature shall
+ * define which objects are database parameters versus status or control
+ * objects.
+ */
+typedef struct GlobalDatabaseManagement
+{
+	/* This object provides transaction control for device configuration. The
+	 * transaction mode changes the behavior of the agent to force buffering of
+	 * database objects until all related database objects have been modified.
+	 * In the normal mode, SET operations to any database object shall either be
+	 * stored in a device’s database immediately with no regard to whether other
+	 * changes will be made or be rejected (as defined in the device-specific
+	 * Information Profile). In the transaction mode, SET operations to any
+	 * database object shall be buffered until a verify state performs a
+	 * consistency check. When the consistency check completes, the device
+	 * automatically transitions to the done state where a normal or transaction
+	 * command may be issued. A database object is a user-provided piece of
+	 * setup information (or it may be defined in an information profile) that
+	 * is necessary for the proper operation of a device. It is static in nature
+	 * in that the agent would never change it without direction from the
+	 * management station. For example, a parameter that defines a default mode
+	 * of operation would be a database object. A parameter that indicates the
+	 * current state of the device would not be a database object. The states
+	 * and commands are defined as:
+	 *
+	 * NORMAL: SET operations behave as normal SETs and shall have an immediate
+	 * effect on the value of any database objects used by the device if none of
+	 * the objects contained in the operation require the use of the transaction
+	 * mode (as defined in the device-specific Information Profile). A SET
+	 * operation containing any database object that requires the use of
+	 * transaction mode shall result in a genErr. This is the default state of
+	 * this object. The only command that may be written to dbCreateTransaction
+	 * while in this state is TRANSACTION. Any other values written to this
+	 * object in this state shall result in an error response of ‘badValue’.
+	 *
+	 * TRANSACTION: A SET operation of one or more database objects that use the
+	 * same community name as used in the request for the TRANSACTION state are
+	 * buffered by the agent device for later consistency checks and a normal
+	 * response is returned. A SET operation of one or more database objects
+	 * using different community names shall result in a genErr with the index
+	 * set to zero. A SET operation without a community name field (e.g., an
+	 * STMP operation) shall be buffered by the agent device for later
+	 * consistency checks and a normal response is returned. Standard SYNTAX
+	 * checking shall take place at the time of the SET operation. A transaction
+	 * may consist of multiple SET operations over multiple frames. A SET
+	 * operation for one or more non-database objects shall be processed as
+	 * normal even if it uses another community name, except for this (i.e., the
+	 * dbCreateTransaction) object. A SET operation containing both database and
+	 * non-database objects shall be processed in full according to these two
+	 * rules. Thus, if it contains the same community name as used in the
+	 * request for the TRANSACTION state, the non-database objects shall be
+	 * stored immediately while the database objects shall be buffered. If it
+	 * uses a different community name, the entire request will be rejected and
+	 * a genErr with an index of zero shall be returned. GET operations on any
+	 * object shall return the values of the data stored in the controller and
+	 * shall ignore any values contained in the buffer. Any valid community name
+	 * may read this (dbCreateTransaction) object when in this state, but only
+	 * the community name used to command the object to the transaction mode and
+	 * the administrator community name can set this object. A set from any
+	 * other community name shall result in a genErr with an index of zero. The
+	 * only commands that can be written to dbCreateTransaction while in this
+	 * state are VERIFY and NORMAL. A VERIFY command will change the state to
+	 * VERIFY. If a NORMAL command is received, all buffered data is discarded
+	 * and the state is returned to NORMAL. Any other values written to this
+	 * object when in this state shall result in an error response of
+	 * ‘badValue’.
+	 *
+	 * VERIFY: Specific database objects are checked for consistency. When
+	 * consistency checks are complete the device will automatically advance to
+	 * the DONE state. The state of dbCreateTransaction cannot be changed when
+	 * in the VERIFY state. Any values written to this object in this state
+	 * shall result in an error response of ‘badValue’. The consistency check
+	 * analyzes certain critical objects 'in context' and treats them as an
+	 * interrelated whole rather than separate non-related data items. The
+	 * consistency check rules are not defined in NTCIP 1201 v03, since these
+	 * are device and implementation specific. Where applicable, the consistency
+	 * check rules are defined in application specific object definition
+	 * standards. A specific implementation may add additional checks
+	 * beyond those defined in NTCIP standards. A SET operation containing any
+	 * database objects while in the VERIFY state shall result in a genErr with
+	 * the index set to zero.
+	 *
+	 * DONE: This state is entered automatically once consistency checks have
+	 * completed in the VERIFY mode. The value of dbVerifyStatus and
+	 * dbVerifyError indicate whether the consistency check found any errors.
+	 * A SET operation containing any database objects while in the DONE state
+	 * shall result in a genErr with the index set to zero. Any valid community
+	 * name may read this (dbCreateTransaction) object when in this state, but
+	 * only the community name used to command the object to the transaction
+	 * mode and the administrator community name can set this object. A set from
+	 * any other community name shall result in a genErr with an index of zero.
+	 * The only commands that can be written to dbCreateTransaction while in
+	 * this state are NORMAL and TRANSACTION. Any other values written to this
+	 * object in this state shall result in an error response of ‘badValue’. If
+	 * a NORMAL command is issued and dbVerifyStatus indicates doneWithNoError,
+	 * the buffered data is transferred to the device memory and the state is
+	 * returned to NORMAL. If a NORMAL command is issued and dbVerifyStatus
+	 * indicates something other than doneWithNoError then the buffered data is
+	 * discarded and the state is returned to NORMAL. If a TRANSACTION command
+	 * is issued, regardless of dbVerifyStatus, no action takes place (the
+	 * buffered data is not changed) and the TRANSACTION state is re-entered.
+
+               +-----------------+------------+------------+-----------------+
+               | TRANSACTION     | VERIFY     | NORMAL     | DONE            |
+ +-------------+-----------------+------------+------------+-----------------+
+ | NORMAL      | TRANSACTION (1) | NORMAL (2) | NORMAL (2) | NORMAL      (2) |
+ | TRANSACTION | TRANSACTION (2) | VERIFY (3) | NORMAL (4) | TRANSACTION (2) |
+ | VERIFY (7)  | VERIFY      (2) | VERIFY (2) | VERIFY (2) | VERIFY      (2) |
+ | DONE   (8)  | TRANSACTION (5) | DONE   (2) | NORMAL (6) | DONE        (2) |
+ +-------------+-----------------+------------+------------+-----------------+
+
+	* Operational procedures and error responses:
+	* (1) Once a copy of all database objects is placed in a buffer, the state
+	*     is changed to transaction and error response indicates noError. If the
+	*     operation fails, the state remains the same and error response
+	*     indicates genErr.
+	* (2) No action takes place, the state remains the same, but response
+	*     indicates badValue.
+	* (3) The state is changed to verify, a consistency check is started, and
+	*     response indicates noError. Once the consistency check is completed,
+	*     the state automatically changes to done.
+	* (4) The buffered copy of all database objects is discarded, the state is
+	*     changed to normal, and response indicates noError.
+	* (5) The buffered copy of all database objects is not changed or reloaded,
+	*     the state is changed to transaction, and response indicates noError.
+	* (6) If dbVerifyStatus indicates doneWithNoError, then the copy of all
+	*     database objects is transferred to memory, the state is changed to
+	*     normal and response indicates noError. If dbVerifyStatus indicates
+	*     doneWithError then the buffered data is discarded, the state is
+	*     changed to NORMAL, and response indicates noError.
+	* (7) The state automatically changes to done when the consistency check
+	*     completes.
+	* (8) dbVerifyStatus and dbVerifyError are only valid in this state.
+	* (9) All SET operations on this (dbCreateTransaction) parameter shall be
+	*     made using a protocol that uses a community name, or equivalent field
+	*     (e.g., SNMP).
+	*/
+	enum
+	{
+		NORMAL      = 1,
+		TRANSACTION = 2,
+		VERIFY      = 3,
+		DONE        = 6
+	} dbCreateTransaction;
+
+	/* This object has been deprecated since 1996.
+	 * This object returns the current error status of the transaction. The
+	 * value of this object is only valid when the dbCreateTransaction object is
+	 * in the Done or Error state.
+	 */
+	enum
+	{
+		tooBig      = 1,
+		noSuchName  = 2,
+		badValue    = 3,
+		readOnly    = 4,
+		genError    = 5,
+		updateError = 6,
+		noError     = 7
+	} dbErrorType;
+
+	/* This object has been deprecated since 1996.
+	 * This object contains the object identifier of the first object in the
+	 * transaction buffer that caused an error while dbCreateTransaction object
+	 * was in the Verifying or Updating state. The value of this object is only
+	 * valid when the dbCreateTransaction object is in the Error state. It is
+	 * undefined when the dbCreateTransaction object is in other states.
+	 */
+	const char *const dbErrorID;
+
+	/* This object has been deprecated since 1996.
+	 * This object contains the transaction ID value that is to be contained in
+	 * all SET operation writes while the dbCreateTransaction object is not in
+	 * the Normal state. During transaction operations every SET command shall
+	 * begin with a write to this object with the current value of this object.
+	 * If a SET operation is performed without writing to this object, or with a
+	 * value that does not match the current value, then an error response of
+	 * ‘genError’ shall be returned. This mechanism is used to determine that
+	 * the same management station that started the transaction is performing
+	 * the SET operations that are being buffered or modifying the state of
+	 * dbCreateTransaction.
+	 */
+	const char *const dbTransactionID;
+
+	/* This object has been deprecated since 1996.
+	 * This object is used to create unique transaction ID’s for management
+	 * stations to use when starting transactions using the dbCreateTransaction
+	 * object. This object will be incremented by one every time it is read, so
+	 * that different values will be returned for each read. Management stations
+	 * wishing to start a transaction should first read the dbCreateTransaction
+	 * object to verify that it is in the Normal state. If so then the
+	 * management shall GET dbMakeID to obtain a transaction ID to use, then
+	 * SET dbCreateTransaction to startCmd and dbTransactionID to the value just
+	 * received. If the response to the SET operation is ‘noError’ then the
+	 * management station has started a transaction. If the response to the SET
+	 * operation is ‘genError’ then the management station should read the
+	 * dbCreateTransaction and dbTransactionID objects to ensure that the error
+	 * was not due to a communications retry. If the dbCreateTransaction is in
+	 * the Transaction state, and the dbTransactionID is the same value returned
+	 * by the read of this object, then the management station is the owner of
+	 * the transaction. If the dbTransactionID does not match the value
+	 * originally returned by this object, then the management station is not
+	 * the owner of the transaction and must wait until the dbCreateTransaction
+	 * object returns to the Normal state before attempting to start the
+	 * transaction.
+	 */
+	uint8_t dbMakeID;
+
+	/* This object indicates the current status of verify (consistency checking)
+	 * processing. The value of this object is only meaningful when the
+	 * dbCreateTransaction object is in the Verify or Done state.
+	 */
+	enum
+	{
+		notDone         = 1,
+		doneWithError   = 2,
+		doneWithNoError = 3
+	} dbVerifyStatus;
+
+	/* This object contains a textual description of or a reference to an error
+	 * that was found by the verify (consistency checking) processing. The value
+	 * of this object is only meaningful when the dbCreateTransaction object is
+	 * in the Done state and the dbVerifyStatus object is in the doneWithError
+	 * state.
+	 */
+	const char *const dbVerifyError;
+} GlobalDatabaseManagement;
 
 /* This node is an identifier used to organize all objects for support of
  * time-related functions that are common to most device types.
